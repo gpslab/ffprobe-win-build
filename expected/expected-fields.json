@@ -1,0 +1,510 @@
+{
+  "_comment": [
+    "Generated from an actual probe run over fixtures/ and then reviewed by hand.",
+    "After changing the fixtures or the codec set, re-derive it the same way:",
+    "probe every fixture, and require the fields that are present today.",
+    "must be present and non-empty. 'at least one fixture has it' would pass exactly",
+    "the regression this gate exists to catch.",
+    "requiredFields is the baseline; a fixture's own 'require' block replaces the",
+    "baseline for that scope, and exists only where the codec genuinely cannot carry",
+    "the field (theora and wmv2 report no profile; vp9, theora, wmv2 report no level;",
+    "container-level bit rates are absent in matroska and mpegts)."
+  ],
+  "emptyValues": [
+    "",
+    "0",
+    "N/A",
+    "unknown",
+    "0/0",
+    "-99"
+  ],
+  "requiredFields": {
+    "format": [
+      "format_name",
+      "size",
+      "nb_streams",
+      "duration",
+      "bit_rate"
+    ],
+    "video": [
+      "codec_name",
+      "codec_type",
+      "width",
+      "height",
+      "pix_fmt",
+      "avg_frame_rate",
+      "r_frame_rate",
+      "time_base"
+    ],
+    "audio": [
+      "codec_name",
+      "codec_type",
+      "sample_rate",
+      "channels",
+      "channel_layout",
+      "sample_fmt",
+      "time_base"
+    ],
+    "subtitle": [
+      "codec_name",
+      "codec_type",
+      "time_base"
+    ]
+  },
+  "notCoveredBySynthetics": {
+    "_why": "FFmpeg has no encoder for these at all, or cannot produce them from a synthetic source, so no fixture can exercise their decoders. Their presence is checked by the composition gate; their output is not checked by anything here.",
+    "noEncoderExistsUpstream": [
+      "pgssub",
+      "vc1",
+      "wmv3"
+    ],
+    "cannotBeTranscodedFromText": [
+      "dvdsub"
+    ],
+    "noFixtureYet": [
+      "aac_latm",
+      "adpcm_ima_wav",
+      "adpcm_ms",
+      "alac",
+      "atrac3",
+      "cook",
+      "dvbsub",
+      "dvvideo",
+      "flv",
+      "jacosub",
+      "microdvd",
+      "mjpeg",
+      "mlp",
+      "mp1",
+      "mpeg1video",
+      "mpl2",
+      "msmpeg4v1",
+      "msmpeg4v2",
+      "msmpeg4v3",
+      "pcm_alaw",
+      "pcm_f32le",
+      "pcm_mulaw",
+      "pcm_s16be",
+      "pcm_s24be",
+      "pcm_s24le",
+      "pcm_s32le",
+      "pcm_u8",
+      "pjs",
+      "prores",
+      "ra_144",
+      "ra_288",
+      "realtext",
+      "rv10",
+      "rv20",
+      "rv30",
+      "rv40",
+      "sami",
+      "sipr",
+      "subviewer",
+      "svq3",
+      "text",
+      "vp6",
+      "vp6a",
+      "vp6f",
+      "vp8",
+      "vplayer",
+      "wmapro",
+      "wmav1",
+      "wmv1",
+      "xsub"
+    ]
+  },
+  "fixtures": [
+    {
+      "file": "aac-only.aac",
+      "expectCodecs": [
+        "aac"
+      ]
+    },
+    {
+      "file": "ac3-only.ac3",
+      "expectCodecs": [
+        "ac3"
+      ]
+    },
+    {
+      "file": "asf-wmv2-wmav2.asf",
+      "expectCodecs": [
+        "wmav2",
+        "wmv2"
+      ],
+      "require": {
+        "audio": [
+          "codec_name",
+          "codec_type",
+          "sample_rate",
+          "channels",
+          "sample_fmt",
+          "time_base"
+        ]
+      }
+    },
+    {
+      "file": "avi-mpeg4-mp3.avi",
+      "expectCodecs": [
+        "mp3",
+        "mpeg4"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      }
+    },
+    {
+      "file": "dts-only.dts",
+      "expectCodecs": [
+        "dts"
+      ]
+    },
+    {
+      "file": "flac-only.flac",
+      "expectCodecs": [
+        "flac"
+      ]
+    },
+    {
+      "file": "flv-h264-aac.flv",
+      "expectCodecs": [
+        "aac",
+        "h264"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      }
+    },
+    {
+      "file": "mkv-av1-opus-webvtt.mkv",
+      "expectCodecs": [
+        "av1",
+        "opus",
+        "webvtt"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      },
+      "requireTags": {
+        "audio": [
+          "language"
+        ],
+        "subtitle": [
+          "language"
+        ]
+      }
+    },
+    {
+      "file": "mkv-h264-aac-ass.mkv",
+      "expectCodecs": [
+        "aac",
+        "ass",
+        "h264"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      },
+      "requireTags": {
+        "video": [
+          "title"
+        ],
+        "audio": [
+          "language",
+          "title"
+        ],
+        "subtitle": [
+          "language",
+          "title"
+        ]
+      },
+      "requireDisposition": {
+        "audio": [
+          "default"
+        ],
+        "subtitle": [
+          "default",
+          "forced"
+        ]
+      }
+    },
+    {
+      "file": "mkv-hevc10-eac3-subrip.mkv",
+      "expectCodecs": [
+        "eac3",
+        "hevc",
+        "subrip"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      },
+      "requireTags": {
+        "audio": [
+          "language"
+        ],
+        "subtitle": [
+          "language"
+        ]
+      }
+    },
+    {
+      "file": "mkv-truehd-dca.mkv",
+      "expectCodecs": [
+        "dts",
+        "truehd"
+      ],
+      "requireTags": {
+        "audio": [
+          "language"
+        ]
+      }
+    },
+    {
+      "file": "mkv-vp9-flac-ssa.mkv",
+      "expectCodecs": [
+        "ass",
+        "flac",
+        "vp9"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      },
+      "requireTags": {
+        "audio": [
+          "language"
+        ],
+        "subtitle": [
+          "language"
+        ]
+      }
+    },
+    {
+      "file": "mp3-only.mp3",
+      "expectCodecs": [
+        "mp3"
+      ]
+    },
+    {
+      "file": "mp4-h264-aac-movtext.mp4",
+      "expectCodecs": [
+        "aac",
+        "h264",
+        "mov_text"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      },
+      "requireTags": {
+        "video": [
+          "language"
+        ],
+        "audio": [
+          "language"
+        ],
+        "subtitle": [
+          "language"
+        ]
+      }
+    },
+    {
+      "file": "ogg-theora-vorbis.ogg",
+      "expectCodecs": [
+        "theora",
+        "vorbis"
+      ]
+    },
+    {
+      "file": "ps-mpeg2-mp2.mpg",
+      "expectCodecs": [
+        "mp2",
+        "mpeg2video"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      }
+    },
+    {
+      "file": "sub-standalone.ass",
+      "expectCodecs": [
+        "ass"
+      ],
+      "require": {
+        "format": [
+          "format_name",
+          "size",
+          "nb_streams"
+        ]
+      }
+    },
+    {
+      "file": "sub-standalone.srt",
+      "expectCodecs": [
+        "subrip"
+      ],
+      "require": {
+        "format": [
+          "format_name",
+          "size",
+          "nb_streams"
+        ]
+      }
+    },
+    {
+      "file": "sub-standalone.vtt",
+      "expectCodecs": [
+        "webvtt"
+      ],
+      "require": {
+        "format": [
+          "format_name",
+          "size",
+          "nb_streams"
+        ]
+      }
+    },
+    {
+      "file": "ts-h264-ac3.ts",
+      "expectCodecs": [
+        "ac3",
+        "h264"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      }
+    },
+    {
+      "file": "ts-mpeg2-mp3.ts",
+      "expectCodecs": [
+        "mp3",
+        "mpeg2video"
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "profile",
+          "level",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base"
+        ]
+      }
+    },
+    {
+      "file": "wav-pcm16.wav",
+      "expectCodecs": [
+        "pcm_s16le"
+      ],
+      "require": {
+        "audio": [
+          "codec_name",
+          "codec_type",
+          "sample_rate",
+          "channels",
+          "sample_fmt",
+          "time_base"
+        ]
+      }
+    }
+  ]
+}

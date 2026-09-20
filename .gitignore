@@ -1,0 +1,14 @@
+# Build tree and downloaded upstream sources are never committed.
+ffmpeg-*/
+ffmpeg-*.tar.xz
+build/
+bundle/
+*.zip
+*.zip.sig
+SHA256SUMS
+
+# License texts are copied from the pinned upstream tarball and from the MSYS2
+# toolchain at build time — see THIRD-PARTY-LICENSES/README.md. Vendoring copies
+# here would let them drift away from what actually ships.
+THIRD-PARTY-LICENSES/texts/*
+!THIRD-PARTY-LICENSES/texts/.gitkeep
