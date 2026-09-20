@@ -116,7 +116,10 @@ jobs:
         run: |
           set -euo pipefail
           cd work
-          make -j"$(nproc)" ffprobe
+          # No explicit target: on Windows it would have to be `ffprobe.exe`
+          # (EXESUF), and naming `ffprobe` fails with "No rule to make target".
+          # The configuration builds nothing else, so the default target is it.
+          make -j"$(nproc)"
           ls -l ffprobe.exe ffprobe_g.exe
 
       - name: Collect binary facts
