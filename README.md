@@ -90,11 +90,20 @@ no user's machine.
 **Field coverage** ([`check-fields.js`](.github/scripts/check-fields.js)) — runs
 the built `ffprobe` over the committed synthetic fixtures and requires the
 fields in [`expected/expected-fields.json`](expected/expected-fields.json) to be
-present and non-empty. This is what catches a missing parser or a missing
-`extract_extradata` bitstream filter: `avformat_find_stream_info()` does not
-fail when a piece is absent, it just leaves fields unset, and the
-`extract_extradata` lookup in `libavformat/demux.c` is skipped with no log line
-at any verbosity when the filter was not built.
+present and non-empty. `avformat_find_stream_info()` does not fail when a piece
+is absent, it just leaves fields unset, and the `extract_extradata` lookup in
+`libavformat/demux.c` is skipped with no log line at any verbosity when the
+filter was not built.
+
+That last failure needed measuring rather than assuming. A build made without
+`--enable-bsf=extract_extradata` was probed against the same fixtures: `profile`,
+`level` and `pix_fmt` still arrived on the MPEG-TS fixtures — the parser supplies
+them — and an earlier version of this gate passed the broken build cleanly. The
+one field that actually disappears is `extradata_size` (35 bytes for h264, 22 for
+mpeg2video, absent entirely without the filter), and it is not part of the
+default `-show_streams` output, so the gate asks for it in a second pass. Without
+that, the most silent failure mode in this build would have gone unchecked by the
+check written for it.
 
 **Long path / non-ASCII** ([`check-longpath.js`](.github/scripts/check-longpath.js))
 — probes a fixture copied to a path past `MAX_PATH` under a Japanese and

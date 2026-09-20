@@ -8,7 +8,8 @@
     "requiredFields is the baseline; a fixture's own 'require' block replaces the",
     "baseline for that scope, and exists only where the codec genuinely cannot carry",
     "the field (theora and wmv2 report no profile; vp9, theora, wmv2 report no level;",
-    "container-level bit rates are absent in matroska and mpegts)."
+    "container-level bit rates are absent in matroska and mpegts).",
+    "extradata_size is required on every fixture whose video streams carry it: it is the only field here that vanishes when the extract_extradata bitstream filter is absent, which is otherwise a completely silent failure (libavformat/demux.c skips the missing filter with no log line)."
   ],
   "emptyValues": [
     "",
@@ -141,6 +142,17 @@
           "channels",
           "sample_fmt",
           "time_base"
+        ],
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base",
+          "extradata_size"
         ]
       }
     },
@@ -161,7 +173,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       }
     },
@@ -194,7 +207,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       }
     },
@@ -215,7 +229,8 @@
           "profile",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       },
       "requireTags": {
@@ -245,7 +260,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       },
       "requireTags": {
@@ -289,7 +305,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       },
       "requireTags": {
@@ -366,7 +383,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       },
       "requireTags": {
@@ -386,7 +404,20 @@
       "expectCodecs": [
         "theora",
         "vorbis"
-      ]
+      ],
+      "require": {
+        "video": [
+          "codec_name",
+          "codec_type",
+          "width",
+          "height",
+          "pix_fmt",
+          "avg_frame_rate",
+          "r_frame_rate",
+          "time_base",
+          "extradata_size"
+        ]
+      }
     },
     {
       "file": "ps-mpeg2-mp2.mpg",
@@ -405,7 +436,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       }
     },
@@ -465,7 +497,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       }
     },
@@ -486,7 +519,8 @@
           "level",
           "avg_frame_rate",
           "r_frame_rate",
-          "time_base"
+          "time_base",
+          "extradata_size"
         ]
       }
     },

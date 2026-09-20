@@ -44,7 +44,25 @@ function probe(file) {
     '-hide_banner', '-loglevel', 'error',
     '-show_format', '-show_streams', '-print_format', 'json', file,
   ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  return JSON.parse(out);
+  const json = JSON.parse(out);
+
+  // `extradata_size` is NOT part of the default -show_streams output and has to
+  // be asked for by name. It is worth the second pass: it is the ONLY field
+  // measured here that disappears when the extract_extradata bitstream filter
+  // is missing. Verified in both directions on n9.0.2 — with the filter, the
+  // MPEG-TS fixtures report extradata_size=35 (h264) and =22 (mpeg2video);
+  // built without it, the field is absent entirely while profile, level and
+  // pix_fmt still arrive from the parser and everything else looks healthy.
+  // Without this pass the field-coverage gate cannot see that failure at all.
+  const extra = JSON.parse(execFileSync(ffprobe, [
+    '-hide_banner', '-loglevel', 'error',
+    '-show_entries', 'stream=index,extradata_size', '-print_format', 'json', file,
+  ], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }));
+  const byIndex = new Map((extra.streams || []).map((s) => [s.index, s.extradata_size]));
+  for (const s of json.streams || []) {
+    if (byIndex.has(s.index)) s.extradata_size = byIndex.get(s.index);
+  }
+  return json;
 }
 
 let failures = 0;
