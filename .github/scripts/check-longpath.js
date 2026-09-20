@@ -40,15 +40,19 @@ function probe(file) {
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffprobe-longpath-'));
 
-// Nest until the full path comfortably exceeds MAX_PATH (260).
+// Nest until the FULL path — directories plus the file name — comfortably
+// exceeds MAX_PATH (260). Measure the finished path rather than estimating the
+// file name's contribution: the first version of this check guessed, landed on
+// 219 characters, and would have reported success while proving nothing.
 const segment = '[Fansub]_テスト_Тест_Сезон-01_[BDRip_1080p_HEVC]';
+const fileName = `テスト_Тест_[1080p]${path.extname(fixture)}`;
 let dir = root;
-while (dir.length + segment.length + 80 < 300) {
+while (path.join(dir, segment, fileName).length < 290) {
   dir = path.join(dir, segment);
 }
 fs.mkdirSync(dir, { recursive: true });
 
-const target = path.join(dir, `テスト_Тест_[1080p]${path.extname(fixture)}`);
+const target = path.join(dir, fileName);
 fs.copyFileSync(fixture, target);
 
 console.log(`short path : ${fixture}`);

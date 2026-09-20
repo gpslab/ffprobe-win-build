@@ -79,10 +79,11 @@ jobs:
             echo
             gcc -v 2>&1 | grep -E 'Thread model|gcc version'
             echo
-            pacman -Q mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-crt-git \
-                      mingw-w64-ucrt-x86_64-winpthreads-git \
-                      mingw-w64-ucrt-x86_64-zlib \
-                      mingw-w64-ucrt-x86_64-binutils 2>&1 || true
+            for pkg in gcc crt winpthreads zlib binutils; do
+              pacman -Q "mingw-w64-ucrt-x86_64-${pkg}" 2>/dev/null \
+                || pacman -Q "mingw-w64-ucrt-x86_64-${pkg}-git" 2>/dev/null \
+                || echo "mingw-w64-ucrt-x86_64-${pkg} NOT INSTALLED"
+            done
           } | tee toolchain.txt
 
       - name: Fetch and verify FFmpeg source tarball
@@ -202,14 +203,25 @@ jobs:
           cp "$(find_license COPYING.MinGW-w64-runtime.txt)" bundle/THIRD-PARTY-LICENSES/texts/
           cp "$(find_license RUNTIME.LIBRARY.EXCEPTION)"     bundle/THIRD-PARTY-LICENSES/texts/
 
-          # zlib's licence file name varies between MSYS2 package revisions, so
-          # take whatever the zlib licence directory holds — but insist it exists.
-          ZL=$(find "${MINGW_PREFIX}/share/licenses/zlib" -type f -print -quit 2>/dev/null || true)
-          if [ -z "$ZL" ]; then
-            echo "FATAL: no zlib licence text in the toolchain; zlib is statically linked in." >&2
-            exit 1
-          fi
-          cp "$ZL" bundle/THIRD-PARTY-LICENSES/texts/zlib-LICENSE.txt
+          # Licence file names vary between MSYS2 package revisions, so take
+          # whatever the component's licence directory holds — but insist it exists.
+          copy_pkg_license() {
+            local found
+            found=$(find "${MINGW_PREFIX}/share/licenses/$1" -type f -print -quit 2>/dev/null || true)
+            if [ -z "$found" ]; then
+              echo "FATAL: no licence text for $1 in the toolchain, yet it is statically" >&2
+              echo "linked into ffprobe.exe. Shipping without it is not an option." >&2
+              exit 1
+            fi
+            cp "$found" "bundle/THIRD-PARTY-LICENSES/texts/$2"
+          }
+
+          copy_pkg_license zlib zlib-LICENSE.txt
+          # winpthreads is not a theoretical dependency: MSYS2's GCC is built
+          # with --enable-threads=posix, and `strings ffprobe.exe` finds its
+          # symbols in the static binary even though FFmpeg itself uses
+          # w32threads. Measured on the first Windows run, not assumed.
+          copy_pkg_license winpthreads winpthreads-LICENSE.txt
 
           {
             echo "ffprobe bundle — component versions"

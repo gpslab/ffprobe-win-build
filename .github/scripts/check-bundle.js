@@ -20,6 +20,10 @@
 //                             and license notices are included when
 //                             distributing the code in binary form."
 //   zlib-LICENSE.txt          zlib is statically linked in (--enable-zlib).
+//   winpthreads-LICENSE.txt   MSYS2's GCC is built with --enable-threads=posix,
+//                             so libwinpthread is linked in even though FFmpeg
+//                             itself uses w32threads. Measured, not assumed:
+//                             `strings ffprobe.exe` finds its symbols.
 //   RUNTIME.LIBRARY.EXCEPTION GCC RLE 3.1 — libgcc is statically linked; the
 //                             exception is what makes that unencumbered, so it
 //                             travels with the binary that relies on it.
@@ -50,6 +54,7 @@ const REQUIRED = [
   'THIRD-PARTY-LICENSES/texts/FFmpeg-LICENSE.md',
   'THIRD-PARTY-LICENSES/texts/COPYING.MinGW-w64-runtime.txt',
   'THIRD-PARTY-LICENSES/texts/zlib-LICENSE.txt',
+  'THIRD-PARTY-LICENSES/texts/winpthreads-LICENSE.txt',
   'THIRD-PARTY-LICENSES/texts/RUNTIME.LIBRARY.EXCEPTION',
 ];
 

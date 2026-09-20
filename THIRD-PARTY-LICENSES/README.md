@@ -16,6 +16,7 @@ this file.
 | MinGW-w64 runtime             | aggregate — see the text (includes BSD, ISC, MIT, Lucent, Sun, and LGPL-2.1+ parts) | [`texts/COPYING.MinGW-w64-runtime.txt`](texts/COPYING.MinGW-w64-runtime.txt) |
 | libgcc (static)               | GPL-3.0 **with** the GCC Runtime Library Exception 3.1 | [`texts/RUNTIME.LIBRARY.EXCEPTION`](texts/RUNTIME.LIBRARY.EXCEPTION) |
 | zlib                          | zlib licence                              | [`texts/zlib-LICENSE.txt`](texts/zlib-LICENSE.txt) |
+| libwinpthread (mingw-w64)     | MIT-style, see the text                   | [`texts/winpthreads-LICENSE.txt`](texts/winpthreads-LICENSE.txt) |
 | Universal C Runtime (`ucrtbase.dll`, `api-ms-win-*`) | Microsoft, component of the operating system | not bundled — see below |
 
 ## FFmpeg and LGPL-2.1
@@ -68,6 +69,13 @@ tarball and the recipe, modify the libraries as you wish, rebuild `ffprobe.exe`,
 and replace the file in this bundle with your build. Nothing in the surrounding
 application links against any FFmpeg library — `ffprobe.exe` is executed as a
 separate process and communicates over its command line and standard output.
+
+## Threading runtime
+
+FFmpeg on mingw uses Windows' own threading, but MSYS2's GCC is built with
+`--enable-threads=posix`, so `libwinpthread` is linked into the static binary
+regardless. This was measured on the build rather than reasoned about: its
+symbols are present in `ffprobe.exe`. Its licence therefore travels with it.
 
 ## Operating-system components
 

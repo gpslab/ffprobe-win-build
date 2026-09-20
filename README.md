@@ -46,6 +46,15 @@ about what was requested.
 UCRT64 rather than MINGW64: MSYS2 deprecated the msvcrt-based MINGW64
 environment in March 2026, and the UCRT ships with Windows 10 and later.
 
+The resulting `ffprobe.exe` is 10.4 MB and imports only `KERNEL32.dll`,
+`SHELL32.dll`, `bcrypt.dll` and the `api-ms-win-crt-*` UCRT set — nothing that
+is not part of Windows. (`ffprobe_g.exe`, the unstripped link target sitting
+next to it in the build directory, is 48.5 MB; that is why the bundle step
+copies by name and the bundle gate refuses the file.) MSYS2's GCC is built with
+`--enable-threads=posix`, so `libwinpthread` ends up statically linked in even
+though FFmpeg itself uses w32threads — measured with `strings`, not assumed, and
+its licence ships accordingly.
+
 ## The gates, and why each exists
 
 A trimmed FFmpeg build fails quietly. That is the whole problem this repository
