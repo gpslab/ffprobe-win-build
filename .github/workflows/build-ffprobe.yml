@@ -1,0 +1,295 @@
+name: build-ffprobe
+
+# CI build of a minimal, statically linked `ffprobe.exe` for Windows x64,
+# compiled from a pinned upstream FFmpeg release tarball and published as a
+# signed bundle.
+#
+# Triggers:
+#   - pull_request / push to master -> build + all gates (validation only)
+#   - workflow_dispatch             -> manual build + gates
+#   - push tag 'ffprobe-*'          -> build + gates + publish Release
+on:
+  push:
+    branches: [master]
+    tags: ['ffprobe-*']
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# contents: write is required only to create a Release on a tag push.
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Release builds are never cancelled. Branch and PR runs are.
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  FFMPEG_VERSION: '9.0.2'
+  # SHA-256 of https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz, verified before
+  # anything is unpacked. This exact tarball also ships as a release asset: it
+  # IS the corresponding source for the binary built from it, so it must be the
+  # same bytes, not "the same version fetched again later".
+  FFMPEG_TARBALL_SHA256: '8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e'
+
+jobs:
+  build:
+    name: Build ffprobe (Win x64, MSYS2 UCRT64, static)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: No patches against upstream
+        shell: pwsh
+        run: node .github/scripts/check-no-patches.js
+
+      # UCRT64, not MINGW64: MSYS2 deprecated the msvcrt-based MINGW64
+      # environment in March 2026, and UCRT ships with Windows 10 and later,
+      # which is the application's minimum platform anyway.
+      - name: Set up MSYS2 (UCRT64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            base-devel
+            diffutils
+            make
+            tar
+            xz
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-binutils
+            mingw-w64-ucrt-x86_64-nasm
+            mingw-w64-ucrt-x86_64-zlib
+            mingw-w64-ucrt-x86_64-pkgconf
+
+      - name: Record toolchain
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          {
+            echo "# toolchain, recorded at build time"
+            echo "MSYSTEM=${MSYSTEM}"
+            echo "MINGW_PREFIX=${MINGW_PREFIX}"
+            echo
+            gcc -v 2>&1 | grep -E 'Thread model|gcc version'
+            echo
+            pacman -Q mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-crt-git \
+                      mingw-w64-ucrt-x86_64-winpthreads-git \
+                      mingw-w64-ucrt-x86_64-zlib \
+                      mingw-w64-ucrt-x86_64-binutils 2>&1 || true
+          } | tee toolchain.txt
+
+      - name: Fetch and verify FFmpeg source tarball
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          curl -fsSL -o "ffmpeg-${FFMPEG_VERSION}.tar.xz" \
+            "https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz"
+          echo "${FFMPEG_TARBALL_SHA256}  ffmpeg-${FFMPEG_VERSION}.tar.xz" | sha256sum -c -
+          tar -xf "ffmpeg-${FFMPEG_VERSION}.tar.xz"
+
+      # The flag list lives in expected/configure-flags.txt and is read from
+      # there, not duplicated here. Duplicating it would give the build and its
+      # own drift gate two different sources of truth.
+      - name: Configure
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          mapfile -t FLAGS < <(grep -vE '^\s*(#|$)' expected/configure-flags.txt)
+          mkdir -p work && cd work
+          "../ffmpeg-${FFMPEG_VERSION}/configure" \
+            "${FLAGS[@]}" \
+            --extra-ldflags="-static" \
+            --pkg-config-flags="--static" \
+            | tee ../configure-output.txt
+          echo "--- resolved license ---"
+          grep -E '^License:' ../configure-output.txt
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cd work
+          make -j"$(nproc)" ffprobe
+          ls -l ffprobe.exe ffprobe_g.exe
+
+      - name: Collect binary facts
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          cd work
+          objdump -p ffprobe.exe > ../objdump.txt
+          echo "=== sizes ==="
+          ls -l ffprobe.exe ffprobe_g.exe
+          echo "=== imports ==="
+          grep 'DLL Name' ../objdump.txt
+          echo "=== winpthread / pthread symbols (open question in the design) ==="
+          strings ffprobe.exe | grep -ci 'winpthread' || echo "0 occurrences of 'winpthread'"
+          strings ffprobe.exe | grep -ci 'pthread_' || echo "0 occurrences of 'pthread_'"
+
+      # ---- gates ------------------------------------------------------------
+      # Each of these fails the build. They run before anything is packaged, let
+      # alone signed: a bundle that reaches the signing step has already been
+      # proven to be the thing we meant to build.
+
+      - name: Gate — license (ffprobe -L)
+        shell: pwsh
+        run: node .github/scripts/check-license.js work/ffprobe.exe
+
+      - name: Gate — composition (every requested component is really there)
+        shell: pwsh
+        run: node .github/scripts/check-components.js work/ffprobe.exe work/ffbuild/config.mak
+
+      - name: Gate — configuration drift
+        shell: pwsh
+        run: node .github/scripts/check-buildconf.js work/ffprobe.exe
+
+      - name: Gate — self-containment (no non-system imports)
+        shell: pwsh
+        run: node .github/scripts/check-imports.js objdump.txt
+
+      - name: Gate — field coverage on synthetic fixtures
+        shell: pwsh
+        run: node .github/scripts/check-fields.js work/ffprobe.exe fixtures
+
+      - name: Gate — non-ASCII name and path past MAX_PATH
+        shell: pwsh
+        run: node .github/scripts/check-longpath.js work/ffprobe.exe fixtures/mkv-h264-aac-ass.mkv
+
+      # ---- bundle -----------------------------------------------------------
+
+      - name: Assemble bundle
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/THIRD-PARTY-LICENSES/texts
+
+          # By name, never a glob: ffprobe_g.exe is the unstripped link target
+          # and is three to four times the size.
+          cp work/ffprobe.exe bundle/ffprobe.exe
+
+          cp BUNDLE-README.txt bundle/
+          cp THIRD-PARTY-LICENSES/README.md bundle/THIRD-PARTY-LICENSES/
+
+          # Licence texts are copied from the pinned tarball and from the actual
+          # toolchain, never vendored into this repository — a vendored copy
+          # drifts away from what ships and nobody notices.
+          cp "ffmpeg-${FFMPEG_VERSION}/COPYING.LGPLv2.1" bundle/THIRD-PARTY-LICENSES/texts/
+          cp "ffmpeg-${FFMPEG_VERSION}/LICENSE.md"       bundle/THIRD-PARTY-LICENSES/texts/FFmpeg-LICENSE.md
+
+          find_license() {
+            local found
+            found=$(find "${MINGW_PREFIX}/share/licenses" "/usr/share/licenses" \
+                      -name "$1" -print -quit 2>/dev/null || true)
+            if [ -z "$found" ]; then
+              echo "FATAL: $1 not found in the toolchain. It is a redistribution" >&2
+              echo "obligation for a component that is statically linked into ffprobe.exe;" >&2
+              echo "shipping without it is not an option and neither is guessing its text." >&2
+              exit 1
+            fi
+            echo "$found"
+          }
+
+          cp "$(find_license COPYING.MinGW-w64-runtime.txt)" bundle/THIRD-PARTY-LICENSES/texts/
+          cp "$(find_license RUNTIME.LIBRARY.EXCEPTION)"     bundle/THIRD-PARTY-LICENSES/texts/
+
+          # zlib's licence file name varies between MSYS2 package revisions, so
+          # take whatever the zlib licence directory holds — but insist it exists.
+          ZL=$(find "${MINGW_PREFIX}/share/licenses/zlib" -type f -print -quit 2>/dev/null || true)
+          if [ -z "$ZL" ]; then
+            echo "FATAL: no zlib licence text in the toolchain; zlib is statically linked in." >&2
+            exit 1
+          fi
+          cp "$ZL" bundle/THIRD-PARTY-LICENSES/texts/zlib-LICENSE.txt
+
+          {
+            echo "ffprobe bundle — component versions"
+            echo
+            echo "FFmpeg:            ${FFMPEG_VERSION} (https://ffmpeg.org/releases/ffmpeg-${FFMPEG_VERSION}.tar.xz)"
+            echo "Tarball SHA-256:   ${FFMPEG_TARBALL_SHA256}"
+            echo "Built from:        ${GITHUB_REPOSITORY}@${GITHUB_SHA}"
+            echo "Workflow run:      ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            cat toolchain.txt
+            echo
+            echo "# configure flags"
+            grep -vE '^\s*(#|$)' expected/configure-flags.txt
+          } > bundle/versions.txt
+
+          ls -lR bundle
+
+      - name: Gate — bundle completeness
+        shell: pwsh
+        run: node .github/scripts/check-bundle.js bundle
+
+      - name: Package bundle (zip)
+        id: package
+        shell: pwsh
+        run: |
+          $zipName = "ffprobe-$env:FFMPEG_VERSION-win-x64.zip"
+          $zipPath = Join-Path $env:GITHUB_WORKSPACE $zipName
+          Compress-Archive -Path "bundle/*" -DestinationPath $zipPath -Force
+          "zip_path=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "zip_name=$zipName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "packaged $zipName"
+
+      # Secrets are not available to pull requests from forks, and this
+      # repository is public precisely so that outside eyes can rebuild it.
+      # An unconditional signing step would make every such PR permanently red.
+      - name: Sign bundle (Ed25519)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        env:
+          FFPROBE_SIGNING_KEY_PEM: ${{ secrets.FFPROBE_SIGNING_KEY_PEM }}
+        run: node .github/scripts/sign-bundle.js "${{ steps.package.outputs.zip_path }}"
+
+      - name: Self-verify signature against the committed public key
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        shell: pwsh
+        run: node .github/scripts/verify-bundle.js "${{ steps.package.outputs.zip_path }}" signing-key.pub
+
+      - name: Upload bundle artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffprobe-win-x64
+          path: bundle
+          if-no-files-found: warn
+
+      - name: Publish GitHub Release (tag push only)
+        if: startsWith(github.ref, 'refs/tags/ffprobe-')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.package.outputs.zip_path }}
+            ${{ steps.package.outputs.zip_path }}.sig
+            ${{ github.workspace }}/SHA256SUMS
+            ${{ github.workspace }}/ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz
+          fail_on_unmatched_files: true
+          body: |
+            Minimal, statically linked **ffprobe** for Windows x64, built from the
+            pinned upstream FFmpeg `${{ env.FFMPEG_VERSION }}` release tarball.
+
+            **What is in the archive**
+            - `ffprobe.exe` — single self-contained executable, no DLLs
+            - `THIRD-PARTY-LICENSES/` — full licence texts for every component linked in
+            - `versions.txt` — FFmpeg version, toolchain versions, exact configure flags
+
+            **Licensing**
+            Configured without `--enable-gpl`, `--enable-version3` and `--enable-nonfree`,
+            and with no external libraries beyond zlib, so the binary is
+            **LGPL-2.1-or-later**. `ffmpeg-${{ env.FFMPEG_VERSION }}.tar.xz` is attached to
+            this same release: it is the corresponding source for the binary, hosted here
+            rather than linked elsewhere, so it stays available for as long as the binary does.
+            No patches are applied to upstream.
+
+            **Integrity**
+            The archive is signed with Ed25519. `<zip>.sig` is the base64 raw signature over
+            the zip; `SHA256SUMS` lists its SHA-256. Verify against `signing-key.pub` at the
+            repository root — see `SIGNING.md`.
